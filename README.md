@@ -1,17 +1,23 @@
-# 🧠 LangChain AI Topic Explainer & Quizzer
+# 🧠 LangChain AI Topic Explainer & Interactive Quizzer
 
-An interactive AI-powered educational application built with **LangChain (LCEL)**, **Google Gemini 3.5 Flash-Lite**, and **Streamlit**. It turns complex AI and software topics into simple, beginner-friendly explanations paired with custom quizzes to test your understanding.
+An interactive AI-powered educational application built with **LangChain (LCEL)**, **Pydantic**, **Google Gemini 3.5 Flash-Lite**, and **Streamlit**. It turns complex AI and software topics into tailored, beginner-to-advanced explanations paired with **interactive, auto-graded quizzes** and downloadable Markdown study notes.
 
 ---
 
-## ✨ Features
+## ✨ Key Features (Phase 1)
 
-- 🔗 **Modular LangChain Architecture**: Uses LangChain Expression Language (LCEL) to chain `ChatPromptTemplate` → `ChatGoogleGenerativeAI` → `StrOutputParser`.
-- 🖥️ **Dual Interface**:
-  - **Interactive Streamlit Web UI** with sliders for creativity and quiz length.
-  - **Lightweight CLI Interface** for fast terminal execution.
-- ⚡ **Powered by Google Gemini**: Uses the free, ultra-fast `gemini-3.5-flash-lite` model.
-- 💡 **Quick Topic Presets**: One-click exploration for popular topics like *LangChain Agents*, *Vector Databases*, *RAG*, and *Neural Networks*.
+- 🔗 **Modular LangChain Architecture**: Built using LangChain Expression Language (LCEL) with `JsonOutputParser` and `Pydantic` schemas for type-safe, structured JSON responses.
+- 🎯 **Target Audience / Difficulty Selector**: Choose between **5-Year-Old (ELI5)**, **Beginner**, **Intermediate**, and **Advanced** explanation levels.
+- 📝 **Interactive Auto-Graded Quiz Engine**:
+  - Interactive radio-button choices for quiz questions.
+  - Instant scorecard with percentage score calculation.
+  - Automatic answer grading with detailed explanations for right and wrong choices.
+  - Celebratory animations (`st.balloons()`) on perfect scores!
+- 📥 **Export Study Notes**: Download complete lessons and quizzes as formatted `.md` files with a single click.
+- ⚙️ **Customization Sliders**: Adjust model creativity (temperature) and quiz question counts (3 to 10 questions).
+- 🖥️ **Dual Mode**:
+  - **Interactive Streamlit Web App** (`streamlit_app.py`)
+  - **Terminal CLI Interface** (`app.py`)
 
 ---
 
@@ -19,11 +25,11 @@ An interactive AI-powered educational application built with **LangChain (LCEL)*
 
 ```
 .
-├── app.py              # Core LangChain logic & CLI entry point
-├── streamlit_app.py    # Streamlit Web UI interface
-├── .env                # Environment variables (GEMINI_API_KEY)
+├── app.py              # LangChain LCEL chain, Pydantic schemas & CLI interface
+├── streamlit_app.py    # Streamlit Web UI with interactive quiz engine & export
+├── .env                # Secret environment variables (GEMINI_API_KEY)
 ├── .gitignore          # Git ignore rules for virtualenv and secrets
-└── README.md           # Project documentation
+└── README.md           # Comprehensive project documentation
 ```
 
 ---
@@ -44,7 +50,7 @@ source .venv/bin/activate
 
 ### 3. Install Dependencies
 ```bash
-pip install langchain langchain-core langchain-google-genai python-dotenv streamlit
+pip install langchain langchain-core langchain-google-genai pydantic python-dotenv streamlit
 ```
 
 ### 4. Configure API Key
@@ -58,7 +64,7 @@ GEMINI_API_KEY=your_actual_gemini_api_key_here
 
 ## 🚀 Running the Application
 
-### Option 1: Run Web UI (Streamlit)
+### Option 1: Run Interactive Web UI (Streamlit)
 ```bash
 streamlit run streamlit_app.py
 ```
