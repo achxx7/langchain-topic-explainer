@@ -2,11 +2,18 @@ import os
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-from langchain_core.prompts import ChatPromptTemplate as template
-from langchain_core.output_parsers import JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate as template, MessagesPlaceholder
+from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI as chat
+from langchain_core.vectorstores import InMemoryVectorStore
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 load_dotenv()
+
+# Automatically map GEMINI_API_KEY to GOOGLE_API_KEY for all LangChain Google modules
+if os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
+    os.environ["GOOGLE_API_KEY"] = os.getenv("GEMINI_API_KEY")
 
 # Pydantic schemas for structured JSON output
 class QuizQuestion(BaseModel):
@@ -52,6 +59,76 @@ def generate_explaination(
         "difficulty": difficulty,
         "num_questions": num_questions,
         "format_instructions": parser.get_format_instructions()
+    })
+
+# RAG Generator: Process custom document text
+def generate_rag_explaination(
+    document_text: str,
+    topic: str = "Uploaded Document Summary",
+    difficulty: str = "Beginner",
+    temperature: float = 0.7,
+    num_questions: int = 5
+) -> Dict[str, Any]:
+    if not os.getenv("GEMINI_API_KEY"):
+        raise ValueError("GEMINI_API_KEY not found in .env file")
+
+    # 1. Text Chunking
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
+    chunks = splitter.split_text(document_text)
+
+    # --- APPROACH A: Google Cloud Embedding VectorStore (API-based) ---
+    # embeddings = GoogleGenerativeAIEmbeddings(
+    #     model="models/text-embedding-004",
+    #     google_api_key=os.getenv("GEMINI_API_KEY")
+    # )
+    # vectorstore = InMemoryVectorStore.from_texts(chunks, embedding=embeddings)
+    # retriever = vectorstore.as_retriever(k=4)
+
+    # --- APPROACH B: Local In-Memory BM25 Retriever (0ms Latency, 100% Free, Offline) ---
+    from langchain_community.retrievers import BM25Retriever
+    retriever = BM25Retriever.from_texts(chunks, k=4)
+
+    # 3. Retrieve Relevant Chunks
+    retrieved_docs = retriever.invoke(topic)
+    context_str = "\n\n".join([doc.page_content for doc in retrieved_docs])
+
+    # 4. Chain Execution with Document Context
+    llm = chat(model="gemini-3.1-flash-lite", temperature=temperature)
+    parser = JsonOutputParser(pydantic_object=TopicLesson)
+
+    prompt = template.from_messages([
+        ("system", "You are an expert tutor. Use the provided context below from the user's document to explain the topic and build quiz questions. "
+                   "Output MUST strictly follow the JSON schema provided below:\n{format_instructions}\n\nContext:\n{context}"),
+        ("user", "Explain the topic '{topic}' at a '{difficulty}' level based on the context. "
+                 "Generate a comprehensive explanation and {num_questions} quiz questions.")
+    ])
+
+    chain = prompt | llm | parser
+    return chain.invoke({
+        "topic": topic,
+        "difficulty": difficulty,
+        "num_questions": num_questions,
+        "context": context_str,
+        "format_instructions": parser.get_format_instructions()
+    })
+
+# Multi-Turn Follow-Up Tutor
+def ask_followup_tutor(user_query: str, history: List[Dict[str, str]], lesson_context: str) -> str:
+    llm = chat(model="gemini-3.1-flash-lite", temperature=0.7)
+    
+    prompt = template.from_messages([
+        ("system", "You are a friendly, encouraging AI tutor helping a student understand a topic. "
+                   "Here is the background lesson context:\n{lesson_context}\n\n"
+                   "Answer the student's question accurately using markdown."),
+        MessagesPlaceholder(variable_name="history"),
+        ("user", "{query}")
+    ])
+
+    chain = prompt | llm | StrOutputParser()
+    return chain.invoke({
+        "lesson_context": lesson_context,
+        "history": history,
+        "query": user_query
     })
 
 def main():
